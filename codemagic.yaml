@@ -54,3 +54,38 @@ workflows:
     artifacts:
       - TwentyOnePilots.zip
       - build/Build/Products/Debug-iphonesimulator/*.app
+
+  # Genera un .ipa SIN FIRMAR para instalarlo en un iPhone real
+  # firmandolo despues con Sideloadly (Windows) y tu Apple ID gratis
+  twentyonepilots-ipa:
+    name: Twenty One Pilots (IPA sin firmar)
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+      vars:
+        XCODE_PROJECT: "TwentyOnePilots.xcodeproj"
+        XCODE_SCHEME: "TwentyOnePilots"
+        APP_NAME: "TwentyOnePilots"
+    scripts:
+      - name: Compilar para iPhone (sin firma)
+        script: |
+          xcodebuild build \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Empaquetar el .ipa
+        script: |
+          mkdir -p Payload
+          cp -r "build/Build/Products/Release-iphoneos/$APP_NAME.app" Payload/
+          zip -r "$CM_BUILD_DIR/$APP_NAME.ipa" Payload
+          ls -lh "$CM_BUILD_DIR/$APP_NAME.ipa"
+    artifacts:
+      - TwentyOnePilots.ipa
