@@ -1,0 +1,56 @@
+# Codemagic - compila la app para el simulador de iOS
+# y genera un .zip listo para subir a appetize.io
+workflows:
+  twentyonepilots-simulador:
+    name: Twenty One Pilots (Simulador para Appetize)
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+      vars:
+        XCODE_PROJECT: "TwentyOnePilots.xcodeproj"
+        XCODE_SCHEME: "TwentyOnePilots"
+        APP_NAME: "TwentyOnePilots"
+      # Opcional: crea un grupo "appetize" en Codemagic con la variable
+      # APPETIZE_API_TOKEN para que la app se suba sola a appetize.io
+      # groups:
+      #   - appetize
+    triggering:
+      events:
+        - push
+    scripts:
+      - name: Ver esquemas del proyecto
+        script: |
+          xcodebuild -list -project "$XCODE_PROJECT"
+
+      - name: Compilar para el simulador (sin firma)
+        script: |
+          xcodebuild build \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Comprimir el .app para Appetize
+        script: |
+          cd build/Build/Products/Debug-iphonesimulator
+          zip -r "$CM_BUILD_DIR/$APP_NAME.zip" "$APP_NAME.app"
+          ls -lh "$CM_BUILD_DIR/$APP_NAME.zip"
+
+      - name: Subir a appetize.io (opcional)
+        script: |
+          if [ -z "$APPETIZE_API_TOKEN" ]; then
+            echo "No hay APPETIZE_API_TOKEN, descarga el .zip de los artefactos y subelo a mano en appetize.io"
+            exit 0
+          fi
+          curl -s -X POST https://api.appetize.io/v1/apps \
+            -H "X-API-KEY: $APPETIZE_API_TOKEN" \
+            -F "file=@$CM_BUILD_DIR/$APP_NAME.zip" \
+            -F "platform=ios"
+    artifacts:
+      - TwentyOnePilots.zip
+      - build/Build/Products/Debug-iphonesimulator/*.app
